@@ -67,7 +67,6 @@ type node struct {
 	KnownAddressList
 	MaxOutboundCnt     uint
 	DefaultMaxPeers    uint
-	GetAddrMax         uint
 	headerFirstMode    bool
 	RequestedBlockList map[Uint256]time.Time
 	// Checkpoints ordered from oldest to newest.
@@ -170,13 +169,8 @@ func InitNode(pubKey *crypto.PubKey) Noder {
 	n := NewNode()
 	n.version = PROTOCOLVERSION
 
-	if Parameters.MaxHdrSyncReqs <= 0 {
 		n.SyncBlkReqSem = MakeSemaphore(MAXSYNCHDRREQ)
 		n.SyncHdrReqSem = MakeSemaphore(MAXSYNCHDRREQ)
-	} else {
-		n.SyncBlkReqSem = MakeSemaphore(Parameters.MaxHdrSyncReqs)
-		n.SyncHdrReqSem = MakeSemaphore(Parameters.MaxHdrSyncReqs)
-	}
 
 	n.link.port = uint16(Parameters.NodePort)
 	n.relay = true
@@ -202,7 +196,6 @@ func InitNode(pubKey *crypto.PubKey) Noder {
 	n.cachedHashes = make([]Uint256, 0)
 	n.local.MaxOutboundCnt = MAXOUTBOUNDCNT
 	n.local.DefaultMaxPeers = DEFAULTMAXPEERS
-	n.local.GetAddrMax = GETADDRMAX
 	n.nodeDisconnectSubscriber = n.eventQueue.GetEvent("disconnect").Subscribe(events.EventNodeDisconnect, n.NodeDisconnect)
 	n.local.headerFirstMode = false
 	n.RequestedBlockList = make(map[Uint256]time.Time)

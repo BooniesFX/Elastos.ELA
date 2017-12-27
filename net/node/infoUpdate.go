@@ -112,12 +112,7 @@ func (node *node) SendPingToNbr() {
 
 func (node *node) HeartBeatMonitor() {
 	noders := node.local.GetNeighborNoder()
-	var periodUpdateTime uint
-	if config.Parameters.GenBlockTime > config.MINGENBLOCKTIME {
-		periodUpdateTime = config.Parameters.GenBlockTime / TIMESOFUPDATETIME
-	} else {
-		periodUpdateTime = config.DEFAULTGENBLOCKTIME / TIMESOFUPDATETIME
-	}
+	periodUpdateTime := config.DEFAULTGENBLOCKTIME / TIMESOFUPDATETIME
 	for _, n := range noders {
 		if n.GetState() == ESTABLISH {
 			t := n.GetLastRXTime()
@@ -197,12 +192,7 @@ func getNodeAddr(n *node) NodeAddr {
 // a node map method
 // Fixme the Nodes should be a parameter
 func (node *node) updateNodeInfo() {
-	var periodUpdateTime uint
-	if config.Parameters.GenBlockTime > config.MINGENBLOCKTIME {
-		periodUpdateTime = config.Parameters.GenBlockTime / TIMESOFUPDATETIME
-	} else {
-		periodUpdateTime = config.DEFAULTGENBLOCKTIME / TIMESOFUPDATETIME
-	}
+	periodUpdateTime := config.DEFAULTGENBLOCKTIME / TIMESOFUPDATETIME
 	ticker := time.NewTicker(time.Second * (time.Duration(periodUpdateTime)) * 2)
 	for {
 		select {

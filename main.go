@@ -12,12 +12,12 @@ import (
 	"Elastos.ELA/core/ledger"
 	"Elastos.ELA/core/store/ChainStore"
 	"Elastos.ELA/core/transaction"
-	"Elastos.ELA/net"
 	"Elastos.ELA/net/httpjsonrpc"
 	"Elastos.ELA/net/httpnodeinfo"
 	"Elastos.ELA/net/httprestful"
 	"Elastos.ELA/net/httpwebsocket"
 	"Elastos.ELA/net/protocol"
+	"Elastos.ELA/net/node"
 )
 
 const (
@@ -100,7 +100,9 @@ func main() {
 	}
 	httpjsonrpc.Wallet = client
 	log.Info("3. Start the P2P networks")
-	noder = net.StartProtocol(acct.PublicKey)
+	noder = node.InitNode(acct.PublicKey)
+	noder.ConnectSeeds()
+
 	httpjsonrpc.RegistRpcNode(noder)
 	time.Sleep(3 * time.Second)
 	noder.StartSync()
