@@ -59,23 +59,16 @@ type node struct {
 	 */
 	syncFlag                 uint8
 	flagLock                 sync.RWMutex
-	flightHeights            []uint32
 	cachelock                sync.RWMutex
-	flightlock               sync.RWMutex
-	invHashLock              sync.RWMutex
 	requestedBlockLock       sync.RWMutex
-	lastContact              time.Time
 	nodeDisconnectSubscriber events.Subscriber
-	tryTimes                 uint32
 	cachedHashes             []Uint256
 	ConnectingNodes
 	KnownAddressList
 	MaxOutboundCnt     uint
 	DefaultMaxPeers    uint
 	GetAddrMax         uint
-	TxNotifyChan       chan int
 	headerFirstMode    bool
-	invRequestHashes   []Uint256
 	RequestedBlockList map[Uint256]time.Time
 	// Checkpoints ordered from oldest to newest.
 	NextCheckpoint *Checkpoint
@@ -212,7 +205,6 @@ func InitNode(pubKey *crypto.PubKey) Noder {
 	n.local.GetAddrMax = GETADDRMAX
 	n.nodeDisconnectSubscriber = n.eventQueue.GetEvent("disconnect").Subscribe(events.EventNodeDisconnect, n.NodeDisconnect)
 	n.local.headerFirstMode = false
-	n.invRequestHashes = make([]Uint256, 0)
 	n.RequestedBlockList = make(map[Uint256]time.Time)
 	go n.initConnection()
 	go n.updateConnection()
@@ -614,7 +606,7 @@ func (node *node) StartSync() {
 			}
 		}
 	}
-	node.SetStartSync()
+	node.IsStartSync = true
 }
 
 func (node *node) GetHeaderFisrtModeStatus() bool {
@@ -768,14 +760,6 @@ func (node *node) FindSyncNode() (Noder, error) {
 		}
 	}
 	return nil, errors.New("Not in sync mode")
-}
-
-func (node *node) SetStartSync() {
-	node.IsStartSync = true
-}
-
-func (node *node) GetStartSync() bool {
-	return node.IsStartSync
 }
 
 func (node *node) AcqSyncBlkReqSem() {

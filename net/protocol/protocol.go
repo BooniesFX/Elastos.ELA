@@ -167,7 +167,6 @@ type Noder interface {
 	GetNextCheckpointHash() (common.Uint256, error)
 	SetHeaderFirstMode(b bool)
 	FindSyncNode() (Noder, error)
-	GetStartSync() bool
 	GetBestHeightNoder() Noder
 	AcqSyncBlkReqSem()
 	RelSyncBlkReqSem()

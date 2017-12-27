@@ -26,7 +26,7 @@ func (node *node) hasSyncPeer() (bool, Noder) {
 }
 
 func (node *node) SyncBlks() {
-	if !node.GetStartSync() {
+	if !node.IsStartSync {
 		return
 	}
 	needSync := node.needSync()
