@@ -69,7 +69,6 @@ type node struct {
 	tryTimes                 uint32
 	cachedHashes             []Uint256
 	ConnectingNodes
-	RetryConnAddrs
 	KnownAddressList
 	MaxOutboundCnt     uint
 	DefaultMaxPeers    uint
@@ -87,10 +86,6 @@ type node struct {
 	StopHash       Uint256
 }
 
-type RetryConnAddrs struct {
-	sync.RWMutex
-	RetryAddrs map[string]int
-}
 
 type ConnectingNodes struct {
 	sync.RWMutex
@@ -212,9 +207,9 @@ func InitNode(pubKey *crypto.PubKey) Noder {
 	n.eventQueue.init()
 	n.idCache.init()
 	n.cachedHashes = make([]Uint256, 0)
-	n.local.SetMaxOutboundCnt()
-	n.local.SetDefaultMaxPeers()
-	n.local.SetGetAddrMax()
+	n.local.MaxOutboundCnt = MAXOUTBOUNDCNT
+	n.local.DefaultMaxPeers = DEFAULTMAXPEERS
+	n.local.GetAddrMax = GETADDRMAX
 	n.nodeDisconnectSubscriber = n.eventQueue.GetEvent("disconnect").Subscribe(events.EventNodeDisconnect, n.NodeDisconnect)
 	n.local.headerFirstMode = false
 	n.invRequestHashes = make([]Uint256, 0)
@@ -224,30 +219,6 @@ func InitNode(pubKey *crypto.PubKey) Noder {
 	go n.updateNodeInfo()
 
 	return n
-}
-
-func (n *node) SetMaxOutboundCnt() {
-	if (Parameters.MaxOutboundCnt < MAXOUTBOUNDCNT) && (Parameters.MaxOutboundCnt > 0) {
-		n.MaxOutboundCnt = Parameters.MaxOutboundCnt
-	} else {
-		n.MaxOutboundCnt = MAXOUTBOUNDCNT
-	}
-}
-
-func (n *node) SetGetAddrMax() {
-	if (Parameters.GetAddrMax < GETADDRMAX) && (Parameters.GetAddrMax > 0) {
-		n.GetAddrMax = Parameters.GetAddrMax
-	} else {
-		n.GetAddrMax = GETADDRMAX
-	}
-}
-
-func (n *node) SetDefaultMaxPeers() {
-	if (Parameters.DefaultMaxPeers < DEFAULTMAXPEERS) && (Parameters.DefaultMaxPeers > 0) {
-		n.DefaultMaxPeers = Parameters.MaxOutboundCnt
-	} else {
-		n.DefaultMaxPeers = DEFAULTMAXPEERS
-	}
 }
 
 func (n *node) NodeDisconnect(v interface{}) {
@@ -479,23 +450,6 @@ func (node *node) SyncNodeHeight() {
 
 		<-time.After(5 * time.Second)
 	}
-}
-
-func (node *node) WaitForFourPeersStart() {
-	for {
-		log.Debug("WaitForFourPeersStart...")
-		cnt := node.local.GetNbrNodeCnt()
-		if cnt >= MINCONNCNT {
-			break
-		}
-		<-time.After(2 * time.Second)
-	}
-}
-
-func (node *node) StoreFlightHeight(height uint32) {
-	node.flightlock.Lock()
-	defer node.flightlock.Unlock()
-	node.flightHeights = append(node.flightHeights, height)
 }
 
 func (node *node) GetLastRXTime() time.Time {

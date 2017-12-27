@@ -138,7 +138,6 @@ type Noder interface {
 
 	GetNeighborNoder() []Noder
 	GetNbrNodeCnt() uint32
-	StoreFlightHeight(height uint32)
 	GetLastRXTime() time.Time
 	SetHeight(height uint64)
 	IsAddrInNbrList(addr string) bool
