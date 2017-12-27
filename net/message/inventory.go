@@ -56,7 +56,6 @@ func SendMsgSyncBlockHeaders(node Noder, blocator []Uint256, hash Uint256) {
 }
 
 func ReqBlksHdrFromOthers(node Noder) {
-	//node.SetSyncFailed()
 	noders := node.LocalNode().GetNeighborNoder()
 	for _, noder := range noders {
 		if noder.IsSyncFailed() != true {

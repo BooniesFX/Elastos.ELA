@@ -233,13 +233,6 @@ func (msg blkHeader) sendGetDataReq(node Noder) {
 	}
 }
 
-func ReqBlkHdrFromOthers(node Noder) {
-	//node.SetSyncFailed()
-	n := node.LocalNode().GetBestHeightNoder()
-	hash := ledger.DefaultLedger.Store.GetCurrentBlockHash()
-	SendMsgSyncHeaders(n, hash)
-}
-
 func (msg blkHeader) Handle(node Noder) error {
 	log.Debug()
 	//If received headers message from unknown peer, return

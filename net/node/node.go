@@ -502,32 +502,6 @@ func (node *node) GetLastRXTime() time.Time {
 	return node.time
 }
 
-func (node *node) AddInRetryList(addr string) {
-	node.RetryConnAddrs.Lock()
-	defer node.RetryConnAddrs.Unlock()
-	if node.RetryAddrs == nil {
-		node.RetryAddrs = make(map[string]int)
-	}
-	if _, ok := node.RetryAddrs[addr]; ok {
-		delete(node.RetryAddrs, addr)
-		log.Debug("remove exsit addr from retry list", addr)
-	}
-	//alway set retry to 0
-	node.RetryAddrs[addr] = 0
-	log.Debug("add addr to retry list", addr)
-}
-
-func (node *node) RemoveFromRetryList(addr string) {
-	node.RetryConnAddrs.Lock()
-	defer node.RetryConnAddrs.Unlock()
-	if len(node.RetryAddrs) > 0 {
-		if _, ok := node.RetryAddrs[addr]; ok {
-			delete(node.RetryAddrs, addr)
-			log.Debug("remove addr from retry list", addr)
-		}
-	}
-}
-
 func (node *node) Relay(frmnode Noder, message interface{}) error {
 	log.Debug()
 	if node.LocalNode().IsSyncHeaders() == true {
@@ -594,15 +568,6 @@ func (node *node) Relay(frmnode Noder, message interface{}) error {
 	return nil
 }
 
-func (node *node) CacheHash(hash Uint256) {
-	node.cachelock.Lock()
-	defer node.cachelock.Unlock()
-	node.cachedHashes = append(node.cachedHashes, hash)
-	if len(node.cachedHashes) > MAXCACHEHASH {
-		node.cachedHashes = append(node.cachedHashes[:0], node.cachedHashes[1:]...)
-	}
-}
-
 func (node *node) ExistHash(hash Uint256) bool {
 	node.cachelock.Lock()
 	defer node.cachelock.Unlock()
@@ -614,16 +579,6 @@ func (node *node) ExistHash(hash Uint256) bool {
 	return false
 }
 
-func (node *node) ExistFlightHeight(height uint32) bool {
-	node.flightlock.Lock()
-	defer node.flightlock.Unlock()
-	for _, v := range node.flightHeights {
-		if v == height {
-			return true
-		}
-	}
-	return false
-}
 func (node node) IsSyncHeaders() bool {
 	node.flagLock.RLock()
 	defer node.flagLock.RUnlock()
@@ -652,12 +607,6 @@ func (node node) IsSyncFailed() bool {
 	} else {
 		return false
 	}
-}
-
-func (node *node) SetSyncFailed() {
-	node.flagLock.Lock()
-	defer node.flagLock.Unlock()
-	node.syncFlag = node.syncFlag | 0x02
 }
 
 func (node *node) needSync() bool {
@@ -712,48 +661,6 @@ func (node *node) StartSync() {
 		}
 	}
 	node.SetStartSync()
-}
-
-func (node *node) isFinishSyncFromSyncNode() bool {
-	noders := node.local.GetNeighborNoder()
-	for _, n := range noders {
-		if n.IsSyncHeaders() == true {
-			if uint64(ledger.DefaultLedger.Blockchain.BlockHeight) >= n.GetHeight() {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func (node *node) CacheInvHash(hash Uint256) {
-	node.invHashLock.Lock()
-	defer node.invHashLock.Unlock()
-	node.invRequestHashes = append(node.invRequestHashes, hash)
-	if len(node.invRequestHashes) > MAXINVCACHEHASH {
-		node.invRequestHashes = append(node.invRequestHashes[:0], node.invRequestHashes[1:]...)
-	}
-}
-
-func (node *node) ExistInvHash(hash Uint256) bool {
-	node.invHashLock.Lock()
-	defer node.invHashLock.Unlock()
-	for _, v := range node.invRequestHashes {
-		if v == hash {
-			return true
-		}
-	}
-	return false
-}
-
-func (node *node) DeleteInvHash(hash Uint256) {
-	node.invHashLock.Lock()
-	defer node.invHashLock.Unlock()
-	for i, v := range node.invRequestHashes {
-		if v == hash {
-			node.invRequestHashes = append(node.invRequestHashes[:i], node.invRequestHashes[i+1:]...)
-		}
-	}
 }
 
 func (node *node) GetHeaderFisrtModeStatus() bool {

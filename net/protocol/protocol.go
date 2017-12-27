@@ -144,8 +144,6 @@ type Noder interface {
 	IsAddrInNbrList(addr string) bool
 	SetAddrInConnectingList(addr string) bool
 	RemoveAddrInConnectingList(addr string)
-	AddInRetryList(addr string)
-	RemoveFromRetryList(addr string)
 	GetAddressCnt() uint64
 	AddAddressToKnownAddress(na NodeAddr)
 	RandGetAddresses(nbrAddrs []NodeAddr) []NodeAddr
@@ -154,16 +152,10 @@ type Noder interface {
 	UpdateLastDisconn(id uint64)
 	Relay(Noder, interface{}) error
 	ExistHash(hash common.Uint256) bool
-	CacheHash(hash common.Uint256)
-	ExistFlightHeight(height uint32) bool
 	IsSyncHeaders() bool
 	SetSyncHeaders(b bool)
 	IsSyncFailed() bool
-	SetSyncFailed()
 	StartSync()
-	CacheInvHash(hash common.Uint256)
-	ExistInvHash(hash common.Uint256) bool
-	DeleteInvHash(hash common.Uint256)
 	GetHeaderFisrtModeStatus() bool
 	RequestedBlockExisted(hash common.Uint256) bool
 	AddRequestedBlock(hash common.Uint256)
