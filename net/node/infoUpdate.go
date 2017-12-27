@@ -8,15 +8,10 @@ import (
 	"Elastos.ELA/events"
 	. "Elastos.ELA/net/message"
 	. "Elastos.ELA/net/protocol"
-	"math/rand"
 	"net"
 	"strconv"
 	"time"
 )
-
-func keepAlive(from *Noder, dst *Noder) {
-	// Need move to node function or keep here?
-}
 
 func (node *node) hasSyncPeer() (bool, Noder) {
 	node.local.nbrNodes.RLock()
@@ -28,30 +23,6 @@ func (node *node) hasSyncPeer() (bool, Noder) {
 		}
 	}
 	return false, nil
-}
-
-func (node *node) SyncBlkInNonCheckpointMode() {
-	needSync := node.needSync()
-	if needSync == false {
-		node.local.SetSyncHeaders(false)
-	} else {
-		var syncNode Noder
-		hasSyncPeer, syncNode := node.local.hasSyncPeer()
-		if hasSyncPeer == false {
-			syncNode = node.GetBestHeightNoder()
-		} else {
-			rb := syncNode.GetRequestBlockList()
-			for k := range rb {
-				if rb[k].Before(time.Now().Add(-3 * time.Second)) {
-					ReqBlkData(syncNode, k)
-				}
-			}
-		}
-		hash := ledger.DefaultLedger.Store.GetCurrentBlockHash()
-		blocator := ledger.DefaultLedger.Blockchain.BlockLocatorFromHash(&hash)
-		var emptyHash common.Uint256
-		SendMsgSyncBlockHeaders(syncNode, blocator, emptyHash)
-	}
 }
 
 func (node *node) SyncBlks() {
@@ -198,7 +169,7 @@ func (node *node) ConnectSeeds() {
 
 func (node *node) ConnectNode() {
 	cntcount := node.nbrNodes.GetConnectionCnt()
-	if cntcount < node.GetMaxOutboundCnt() {
+	if cntcount < node.MaxOutboundCnt {
 		nbrAddr, _ := node.GetNeighborAddrs()
 		addrs := node.RandGetAddresses(nbrAddr)
 		for _, nodeAddr := range addrs {
@@ -220,57 +191,6 @@ func getNodeAddr(n *node) NodeAddr {
 	addr.Port = n.GetPort()
 	addr.ID = n.GetID()
 	return addr
-}
-
-func (node *node) reconnect() {
-	node.RetryConnAddrs.Lock()
-	defer node.RetryConnAddrs.Unlock()
-	lst := make(map[string]int)
-	for addr := range node.RetryAddrs {
-		node.RetryAddrs[addr] = node.RetryAddrs[addr] + 1
-		rand.Seed(time.Now().UnixNano())
-		log.Trace("Try to reconnect peer, peer addr is ", addr)
-		<-time.After(time.Duration(rand.Intn(CONNMAXBACK)) * time.Millisecond)
-		log.Trace("Back off time`s up, start connect node")
-		node.Connect(addr)
-		if node.RetryAddrs[addr] < MAXRETRYCOUNT {
-			lst[addr] = node.RetryAddrs[addr]
-		}
-	}
-	node.RetryAddrs = lst
-
-}
-
-func (n *node) TryConnect() {
-	if n.fetchRetryNodeFromNeiborList() > 0 {
-		n.reconnect()
-	}
-}
-
-func (n *node) fetchRetryNodeFromNeiborList() int {
-	n.nbrNodes.Lock()
-	defer n.nbrNodes.Unlock()
-	var ip net.IP
-	neibornodes := make(map[uint64]*node)
-	for _, tn := range n.nbrNodes.List {
-		addr := getNodeAddr(tn)
-		ip = addr.IpAddr[:]
-		nodeAddr := ip.To16().String() + ":" + strconv.Itoa(int(addr.Port))
-		if tn.GetState() == INACTIVITY {
-			//add addr to retry list
-			n.AddInRetryList(nodeAddr)
-			//close legacy node
-			if tn.conn != nil {
-				tn.CloseConn()
-			}
-		} else {
-			//add others to tmp node map
-			n.RemoveFromRetryList(nodeAddr)
-			neibornodes[tn.GetID()] = tn
-		}
-	}
-	n.nbrNodes.List = neibornodes
-	return len(n.RetryAddrs)
 }
 
 // FIXME part of node info update function could be a node method itself intead of
@@ -298,7 +218,7 @@ func (node *node) updateNodeInfo() {
 
 func (node *node) CheckConnCnt() {
 	//compare if connect count is larger than DefaultMaxPeers, disconnect one of the connection
-	if node.nbrNodes.GetConnectionCnt() > node.GetDefaultMaxPeers() {
+	if node.nbrNodes.GetConnectionCnt() > node.DefaultMaxPeers {
 		disconnNode := node.RandGetANbr()
 		node.eventQueue.GetEvent("disconnect").Notify(events.EventNodeDisconnect, disconnNode)
 	}
@@ -310,7 +230,6 @@ func (node *node) updateConnection() {
 		select {
 		case <-t.C:
 			node.ConnectSeeds()
-			//node.TryConnect()
 			node.ConnectNode()
 			node.CheckConnCnt()
 			t.Stop()

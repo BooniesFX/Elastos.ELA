@@ -139,13 +139,8 @@ type Noder interface {
 	GetNeighborNoder() []Noder
 	GetNbrNodeCnt() uint32
 	StoreFlightHeight(height uint32)
-	GetFlightHeightCnt() int
-	RemoveFlightHeightLessThan(height uint32)
-	RemoveFlightHeight(height uint32)
 	GetLastRXTime() time.Time
 	SetHeight(height uint64)
-	WaitForFourPeersStart()
-	GetFlightHeights() []uint32
 	IsAddrInNbrList(addr string) bool
 	SetAddrInConnectingList(addr string) bool
 	RemoveAddrInConnectingList(addr string)
@@ -154,9 +149,6 @@ type Noder interface {
 	GetAddressCnt() uint64
 	AddAddressToKnownAddress(na NodeAddr)
 	RandGetAddresses(nbrAddrs []NodeAddr) []NodeAddr
-	GetDefaultMaxPeers() uint
-	GetMaxOutboundCnt() uint
-	GetGetAddrMax() uint
 	NeedMoreAddresses() bool
 	RandSelectAddresses() []NodeAddr
 	UpdateLastDisconn(id uint64)

@@ -250,18 +250,6 @@ func (n *node) SetDefaultMaxPeers() {
 	}
 }
 
-func (n *node) GetGetAddrMax() uint {
-	return n.GetAddrMax
-}
-
-func (n *node) GetMaxOutboundCnt() uint {
-	return n.MaxOutboundCnt
-}
-
-func (n *node) GetDefaultMaxPeers() uint {
-	return n.DefaultMaxPeers
-}
-
 func (n *node) NodeDisconnect(v interface{}) {
 	if node, ok := v.(*node); ok {
 		node.SetState(INACTIVITY)
@@ -508,44 +496,6 @@ func (node *node) StoreFlightHeight(height uint32) {
 	node.flightlock.Lock()
 	defer node.flightlock.Unlock()
 	node.flightHeights = append(node.flightHeights, height)
-}
-
-func (node *node) GetFlightHeightCnt() int {
-	return len(node.flightHeights)
-}
-func (node *node) GetFlightHeights() []uint32 {
-	return node.flightHeights
-}
-
-func (node *node) RemoveFlightHeightLessThan(h uint32) {
-	node.flightlock.Lock()
-	defer node.flightlock.Unlock()
-	heights := node.flightHeights
-	p := len(heights)
-	i := 0
-
-	for i < p {
-		if heights[i] < h {
-			p--
-			heights[p], heights[i] = heights[i], heights[p]
-		} else {
-			i++
-		}
-	}
-	node.flightHeights = heights[:p]
-}
-
-func (node *node) RemoveFlightHeight(height uint32) {
-	node.flightlock.Lock()
-	defer node.flightlock.Unlock()
-	log.Debug("height is ", height)
-	for _, h := range node.flightHeights {
-		log.Debug("flight height ", h)
-	}
-	node.flightHeights = SliceRemove(node.flightHeights, height)
-	for _, h := range node.flightHeights {
-		log.Debug("after flight height ", h)
-	}
 }
 
 func (node *node) GetLastRXTime() time.Time {
