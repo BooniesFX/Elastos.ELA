@@ -153,17 +153,12 @@ type Noder interface {
 	IsSyncHeaders() bool
 	SetSyncHeaders(b bool)
 	IsSyncFailed() bool
-	StartSync()
 	GetHeaderFisrtModeStatus() bool
 	RequestedBlockExisted(hash common.Uint256) bool
 	AddRequestedBlock(hash common.Uint256)
 	DeleteRequestedBlock(hash common.Uint256)
 	GetRequestBlockList() map[common.Uint256]time.Time
 	IsNeighborNoder(n Noder) bool
-	GetNextCheckpoint() *Checkpoint
-	FindNextHeaderCheckpoint(height uint64) *Checkpoint
-	GetNextCheckpointHeight() (uint64, error)
-	GetNextCheckpointHash() (common.Uint256, error)
 	SetHeaderFirstMode(b bool)
 	FindSyncNode() (Noder, error)
 	GetBestHeightNoder() Noder
@@ -178,11 +173,6 @@ type Noder interface {
 	ResetRequestedBlock()
 }
 
-// Checkpoint identifies a known good point in the block chain.
-type Checkpoint struct {
-	Height uint64
-	Hash   common.Uint256
-}
 
 func (msg *NodeAddr) Deserialization(p []byte) error {
 	buf := bytes.NewBuffer(p)

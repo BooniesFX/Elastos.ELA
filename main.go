@@ -16,8 +16,8 @@ import (
 	"Elastos.ELA/net/httpnodeinfo"
 	"Elastos.ELA/net/httprestful"
 	"Elastos.ELA/net/httpwebsocket"
-	"Elastos.ELA/net/protocol"
 	"Elastos.ELA/net/node"
+	"Elastos.ELA/net/protocol"
 )
 
 const (
@@ -105,7 +105,6 @@ func main() {
 
 	httpjsonrpc.RegistRpcNode(noder)
 	time.Sleep(3 * time.Second)
-	noder.StartSync()
 	noder.SyncNodeHeight()
 	startConsensus(client, noder)
 

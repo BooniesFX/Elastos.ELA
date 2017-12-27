@@ -92,8 +92,6 @@ type Configuration struct {
 	MaxTxInBlock        int              `json:"MaxTransactionInBlock"`
 	MaxBlockSize        int              `json:"MaxBlockSize"`
 	PowConfiguration    PowConfiguration `json:"PowConfiguration"`
-	//AddCheckpoints format: "<height>:<hash>"
-	AddCheckpoints []string `json:"AddCheckpoints"`
 }
 
 type ConfigFile struct {
