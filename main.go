@@ -16,6 +16,7 @@ import (
 	"Elastos.ELA/net/httpjsonrpc"
 	"Elastos.ELA/net/httpnodeinfo"
 	"Elastos.ELA/net/httprestful"
+	"Elastos.ELA/net/httprestful/common"
 	"Elastos.ELA/net/httpwebsocket"
 	"Elastos.ELA/net/protocol"
 )
@@ -110,13 +111,18 @@ func main() {
 	handleLogFile()
 
 	log.Info("4. --Start the RPC service")
-	go httpjsonrpc.StartRPCServer()
-	go httprestful.StartServer(noder)
-	go httpwebsocket.StartServer(noder)
-	if config.Parameters.HttpInfoStart {
-		go httpnodeinfo.StartServer(noder)
-	}
+	StartServers(noder)
 	select {}
 ERROR:
 	os.Exit(1)
+}
+
+func StartServers(noder protocol.Noder) {
+	common.SetNode(noder)
+	go httpjsonrpc.StartRPCServer()
+	go httprestful.StartServer()
+	go httpwebsocket.StartServer()
+	if config.Parameters.HttpInfoStart {
+		go httpnodeinfo.StartServer()
+	}
 }
