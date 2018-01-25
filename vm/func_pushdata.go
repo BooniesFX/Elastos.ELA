@@ -1,5 +1,9 @@
 package vm
 
+import (
+	. "Elastos.ELA/vm/opcode"
+)
+
 func opPushData(e *ExecutionEngine) (VMState, error) {
 	data, err := getPushData(e)
 	if err != nil {

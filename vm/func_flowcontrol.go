@@ -2,6 +2,8 @@ package vm
 
 import (
 	"Elastos.ELA/vm/errors"
+	. "Elastos.ELA/vm/opcode"
+	"fmt"
 	"io"
 	"time"
 )
@@ -12,24 +14,31 @@ func opNop(e *ExecutionEngine) (VMState, error) {
 }
 
 func opJmp(e *ExecutionEngine) (VMState, error) {
+	fmt.Println("call jmp")
 	offset := int(e.context.OpReader.ReadInt16())
+	fmt.Printf("OpReader = %v\n", e.context.OpReader.BaseStream)
+	fmt.Printf("e.context.InstructionPointer %d\n", e.context.InstructionPointer)
 	offset = e.context.InstructionPointer + offset - 3
-
+	fmt.Printf("offet %d\n", offset)
 	if offset < 0 || offset > len(e.context.Script) {
 		return FAULT, errors.ErrFault
 	}
+	fmt.Printf("bool = %v\n", 1)
 	fValue := true
 	if e.opCode > JMP {
 		s := AssertStackItem(e.evaluationStack.Pop())
 		fValue = s.GetBoolean()
+		fmt.Printf("bool = %v\n", fValue)
 		if e.opCode == JMPIFNOT {
 			fValue = !fValue
 		}
 	}
 	if fValue {
 		e.context.InstructionPointer = offset
+		e.context.OpReader.Seek(int64(offset), io.SeekStart)
 	}
-
+	fmt.Printf("OpReader = %v\n", e.context.OpReader.BaseStream)
+	//fmt.Printf("e.context.InstructionPointer %d\n", e.context.InstructionPointer)
 	return NONE, nil
 }
 
@@ -77,4 +86,17 @@ func opSysCall(e *ExecutionEngine) (VMState, error) {
 	} else {
 		return FAULT, nil
 	}
+}
+
+func opVerify(e *ExecutionEngine) (VMState, error) {
+	if e.service == nil {
+		return FAULT, nil
+	}
+	fValue := false
+	s := AssertStackItem(e.evaluationStack.Pop())
+	fValue = s.GetBoolean()
+	if !fValue {
+		return FAULT, errors.ErrFault
+	}
+	return NONE, nil
 }

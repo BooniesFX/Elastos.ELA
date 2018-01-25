@@ -7,7 +7,7 @@ import (
 
 	. "Elastos.ELA/common"
 	"Elastos.ELA/common/serialization"
-	"Elastos.ELA/vm"
+	"Elastos.ELA/vm/opcode"
 )
 
 //Contract address is the hash of contract program .
@@ -34,7 +34,7 @@ func (c *Contract) IsStandard() bool {
 	if len(c.Code) != 35 {
 		return false
 	}
-	if c.Code[0] != 33 || c.Code[34] != byte(vm.CHECKSIG) {
+	if c.Code[0] != 33 || c.Code[34] != byte(opcode.CHECKSIG) {
 		return false
 	}
 	return true
@@ -48,10 +48,10 @@ func (c *Contract) IsMultiSigContract() bool {
 	if len(c.Code) < 37 {
 		return false
 	}
-	if c.Code[i] > byte(vm.PUSH16) {
+	if c.Code[i] > byte(opcode.PUSH16) {
 		return false
 	}
-	if c.Code[i] < byte(vm.PUSH1) && c.Code[i] != 1 && c.Code[i] != 2 {
+	if c.Code[i] < byte(opcode.PUSH1) && c.Code[i] != 1 && c.Code[i] != 2 {
 		return false
 	}
 
@@ -110,7 +110,7 @@ func (c *Contract) IsMultiSigContract() bool {
 		break
 	}
 
-	if c.Code[i] != byte(vm.CHECKMULTISIG) {
+	if c.Code[i] != byte(opcode.CHECKMULTISIG) {
 		return false
 	}
 	i++

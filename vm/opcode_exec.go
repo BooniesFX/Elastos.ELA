@@ -1,5 +1,9 @@
 package vm
 
+import (
+	. "Elastos.ELA/vm/opcode"
+)
+
 type OpExec struct {
 	Opcode OpCode
 	Name   string
@@ -42,7 +46,7 @@ var (
 		RET:      {RET, "RET", opRet},
 		APPCALL:  {APPCALL, "APPCALL", opAppCall},
 		SYSCALL:  {SYSCALL, "SYSCALL", opSysCall},
-
+		VERIFY:   {VERIFY, "VERIFY", opVerify},
 		//Stack ops
 		TOALTSTACK:   {TOALTSTACK, "TOALTSTACK", opToAltStack},
 		FROMALTSTACK: {FROMALTSTACK, "FROMALTSTACK", opFromAltStack},
@@ -115,5 +119,8 @@ var (
 		PACK:      {PACK, "PACK", opPack},
 		UNPACK:    {UNPACK, "UNPACK", opUnpack},
 		PICKITEM:  {PICKITEM, "PICKITEM", opPickItem},
+
+		CHECKAFTER:  {CHECKAFTER, "CHECKAFTER", opCheckAfter},
+		CHECKBEFORE: {CHECKBEFORE, "CHECKBEFORE", opCheckBefore},
 	}
 )

@@ -4,10 +4,10 @@ import (
 	. "Elastos.ELA/common"
 	pg "Elastos.ELA/core/contract/program"
 	"Elastos.ELA/crypto"
-	"Elastos.ELA/vm"
+	"Elastos.ELA/vm/opcode"
+	"errors"
 	"math/big"
 	"sort"
-	"errors"
 )
 
 //create a Single Singature contract for owner
@@ -43,7 +43,7 @@ func CreateSignatureRedeemScript(pubkey *crypto.PubKey) ([]byte, error) {
 	}
 	sb := pg.NewProgramBuilder()
 	sb.PushData(temp)
-	sb.AddOp(vm.CHECKSIG)
+	sb.AddOp(opcode.CHECKSIG)
 	return sb.ToArray(), nil
 }
 
@@ -51,7 +51,7 @@ func CreateSignatureRedeemScript(pubkey *crypto.PubKey) ([]byte, error) {
 func CreateMultiSigContract(publicKeyHash Uint168, m int, publicKeys []*crypto.PubKey) (*Contract, error) {
 
 	params := make([]ContractParameterType, m)
-	for i, _ := range params {
+	for i := range params {
 		params[i] = Signature
 	}
 	MultiSigRedeemScript, err := CreateMultiSigRedeemScript(m, publicKeys)
@@ -90,6 +90,42 @@ func CreateMultiSigRedeemScript(m int, pubkeys []*crypto.PubKey) ([]byte, error)
 	}
 
 	sb.PushNumber(big.NewInt(int64(len(pubkeys))))
-	sb.AddOp(vm.CHECKMULTISIG)
+	sb.AddOp(opcode.CHECKMULTISIG)
+	return sb.ToArray(), nil
+}
+
+//create a script contract for owner  。
+func CreateScriptContract(publicKeyHash Uint168, secret []byte, publicKey *crypto.PubKey) (*Contract, error) {
+	params := make([]ContractParameterType, 2)
+	params[0] = Signature
+	params[1] = ByteArray
+
+	script, err := CreateScriptRedeemScript(secret, publicKey)
+	if err != nil {
+		return nil, errors.New("[Contract],CreateScriptRedeemScript failed.")
+	}
+	scriptHashToCodeHash, err := ToCodeHash(script, 3)
+	if err != nil {
+		return nil, errors.New("[Contract],CreateSignatureContract failed.")
+	}
+	return &Contract{
+		Code:            script,
+		Parameters:      params,
+		ProgramHash:     scriptHashToCodeHash,
+		OwnerPubkeyHash: publicKeyHash,
+	}, nil
+}
+
+func CreateScriptRedeemScript(secret []byte, pubkey *crypto.PubKey) ([]byte, error) {
+	sb := pg.NewProgramBuilder()
+	//b.PushNumber(big.NewInt(int64(m)))
+
+	temp, err := pubkey.EncodePoint(true)
+	if err != nil {
+		return nil, errors.New("[Contract],CreateSignatureContract failed.")
+	}
+	sb.PushData(temp)
+
+	sb.AddOp(opcode.CHECKMULTISIG)
 	return sb.ToArray(), nil
 }

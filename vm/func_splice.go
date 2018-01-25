@@ -1,5 +1,9 @@
 package vm
 
+import (
+	. "Elastos.ELA/vm/opcode"
+)
+
 func opCat(e *ExecutionEngine) (VMState, error) {
 	if e.evaluationStack.Count() < 2 {
 		return FAULT, nil

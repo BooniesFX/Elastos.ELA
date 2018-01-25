@@ -1,4 +1,4 @@
-package vm
+package opcode
 
 type OpCode byte
 
@@ -117,4 +117,8 @@ const (
 	PACK      = 0xC1
 	UNPACK    = 0xC2
 	PICKITEM  = 0xC3
+	// SEQUENCE
+	CHECKAFTER  = 0xD0
+	CHECKBEFORE = 0xD1
+	VERIFY      = 0xD9
 )

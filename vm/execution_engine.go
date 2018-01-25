@@ -2,7 +2,9 @@ package vm
 
 import (
 	"Elastos.ELA/vm/interfaces"
+	. "Elastos.ELA/vm/opcode"
 	"Elastos.ELA/vm/utils"
+	"fmt"
 	"io"
 	_ "math/big"
 	_ "sort"
@@ -125,6 +127,7 @@ func (e *ExecutionEngine) StepInto() {
 	}
 	for {
 		opCode, err := context.OpReader.ReadByte()
+
 		if err == io.EOF && opCode == 0 {
 			return
 		}
@@ -149,19 +152,25 @@ func (e *ExecutionEngine) ExecuteOp(opCode OpCode, context *ExecutionContext) (V
 		return FAULT, nil
 	}
 	if opCode >= PUSHBYTES1 && opCode <= PUSHBYTES75 {
+		fmt.Printf("ReadBytes = %d push data\n", opCode)
+
 		err := pushData(e, context.OpReader.ReadBytes(int(opCode)))
+		fmt.Printf("stack = %v\n", e.evaluationStack.Peek(0))
 		if err != nil {
 			return FAULT, err
 		}
 		return NONE, nil
 	}
+	fmt.Printf("opCode = 0x%x\n", opCode)
 	e.opCode = opCode
 	e.context = context
 	opExec := OpExecList[opCode]
 	if opExec.Exec == nil {
 		return FAULT, nil
 	}
+	fmt.Printf("before Exec stack = %v\n", e.evaluationStack.Peek(0))
 	state, err := opExec.Exec(e)
+	fmt.Printf("after Exec stack = %q\n", e.evaluationStack.Peek(0))
 	if err != nil {
 		return state, err
 	}

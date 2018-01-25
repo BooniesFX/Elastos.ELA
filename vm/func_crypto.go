@@ -1,6 +1,7 @@
 package vm
 
 import (
+	. "Elastos.ELA/vm/opcode"
 	"crypto/sha1"
 	"crypto/sha256"
 	"errors"
