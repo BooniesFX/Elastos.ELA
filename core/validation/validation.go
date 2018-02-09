@@ -32,6 +32,8 @@ func VerifySignableData(signableData sig.SignableData) (bool, error) {
 			temp, _ = ToCodeHash(programs[i].Code, 2)
 		} else if hashes[i][0] == 33 {
 			temp, _ = ToCodeHash(programs[i].Code, 1)
+		} else if hashes[i][0] == 75 {
+			temp, _ = ToCodeHash(programs[i].Code, 3)
 		} else {
 			return false, errors.New("invalid address prefix")
 		}

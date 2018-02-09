@@ -32,7 +32,7 @@ func opCheckSig(e *ExecutionEngine) (VMState, error) {
 	if err != nil {
 		return FAULT, err
 	}
-	return NONE, nil
+	return HALT, nil
 }
 
 func opCheckMultiSig(e *ExecutionEngine) (VMState, error) {
@@ -101,10 +101,11 @@ func opCheckMultiSig(e *ExecutionEngine) (VMState, error) {
 	if err != nil {
 		return FAULT, err
 	}
-	return NONE, nil
+	return HALT, nil
 }
 
 func Hash(b []byte, e *ExecutionEngine) []byte {
+	fmt.Println("call opHash")
 	var sh hash.Hash
 	var bt []byte
 	switch e.opCode {
@@ -121,5 +122,6 @@ func Hash(b []byte, e *ExecutionEngine) []byte {
 	case HASH256:
 		bt = e.crypto.Hash256(b)
 	}
+	fmt.Printf("b = %v hash = %v\n", b, bt)
 	return bt
 }

@@ -155,7 +155,6 @@ func (client *ClientImpl) ProcessBlocks() {
 func (client *ClientImpl) ProcessOneBlock(block *ledger.Block) {
 	client.mu.Lock()
 	defer client.mu.Unlock()
-
 	var needUpdate bool
 	// received coins
 	for _, tx := range block.Transactions {
@@ -175,6 +174,8 @@ func (client *ClientImpl) ProcessOneBlock(block *ledger.Block) {
 						newCoin = Coin{Output: output, AddressType: SingleSign, Height: h}
 					case contract.IsMultiSigContract():
 						newCoin = Coin{Output: output, AddressType: MultiSign, Height: h}
+					case contract.GetType() == ct.CustomContract:
+						newCoin = Coin{Output: output, AddressType: Script, Height: h}
 					}
 					client.coins[input] = &newCoin
 					needUpdate = true
@@ -624,6 +625,76 @@ func (cl *ClientImpl) CreateMultiSignContract(contractOwner Uint168, m int, publ
 	contract, err := contract.CreateMultiSigContract(contractOwner, m, publicKeys)
 	if err != nil {
 		return nil, err
+	}
+	if err := cl.SaveContract(contract); err != nil {
+		return nil, err
+	}
+	return contract, err
+}
+
+func (cl *ClientImpl) Createmaindepositaccount(contractOwner Uint168, keys []*crypto.PubKey, hash []byte) (*ct.Contract, error) {
+	var publicKey1 *crypto.PubKey
+	var publicKey2 *crypto.PubKey
+	publicKey1 = keys[1]
+	publicKey2 = keys[0]
+	contract, err := contract.CreateScriptContract(contractOwner, hash, publicKey1, publicKey2, ct.Deposit)
+	if err != nil {
+		return nil, err
+	}
+	if _, ok := cl.contracts[contract.ProgramHash]; ok {
+		return nil, errors.New("Script Contract exist, change the address or secret.")
+	}
+	if err := cl.SaveContract(contract); err != nil {
+		return nil, err
+	}
+	return contract, err
+}
+
+func (cl *ClientImpl) Createsidedepositaccount(contractOwner Uint168, keys []*crypto.PubKey, hash []byte) (*ct.Contract, error) {
+	var publicKey1 *crypto.PubKey
+	publicKey1 = keys[0]
+	contract, err := contract.CreateUnlockScriptContract(contractOwner, hash, publicKey1, 100)
+	if err != nil {
+		return nil, err
+	}
+	if _, ok := cl.contracts[contract.ProgramHash]; ok {
+		return nil, errors.New("Script Contract exist, change the address or secret.")
+	}
+	if err := cl.SaveContract(contract); err != nil {
+		return nil, err
+	}
+	return contract, err
+}
+
+func (cl *ClientImpl) Createmainwithdrawaccount(contractOwner Uint168, keys []*crypto.PubKey, hash []byte) (*ct.Contract, error) {
+	var publicKey1 *crypto.PubKey
+	var publicKey2 *crypto.PubKey
+	publicKey1 = keys[0]
+	publicKey2 = keys[1]
+	contract, err := contract.CreateScriptContract(contractOwner, hash, publicKey1, publicKey2, ct.Withdraw)
+	if err != nil {
+		return nil, err
+	}
+	if _, ok := cl.contracts[contract.ProgramHash]; ok {
+		return nil, errors.New("Script Contract exist, change the address or secret.")
+	}
+	if err := cl.SaveContract(contract); err != nil {
+		return nil, err
+	}
+	return contract, err
+}
+
+func (cl *ClientImpl) Createsidewithdrawaccount(contractOwner Uint168, keys []*crypto.PubKey, hash []byte) (*ct.Contract, error) {
+	var publicKey1 *crypto.PubKey
+	var publicKey2 *crypto.PubKey
+	publicKey1 = keys[1]
+	publicKey2 = keys[0]
+	contract, err := contract.CreateScriptContract(contractOwner, hash, publicKey1, publicKey2, ct.WithdrawUnlock)
+	if err != nil {
+		return nil, err
+	}
+	if _, ok := cl.contracts[contract.ProgramHash]; ok {
+		return nil, errors.New("Script Contract exist, change the address or secret.")
 	}
 	if err := cl.SaveContract(contract); err != nil {
 		return nil, err

@@ -1,18 +1,17 @@
 package wallet
 
 import (
+	"Elastos.ELA/account"
+	. "Elastos.ELA/cli/common"
+	. "Elastos.ELA/common"
+	"Elastos.ELA/common/password"
+	ct "Elastos.ELA/core/contract"
+	"Elastos.ELA/crypto"
 	"fmt"
+	"github.com/urfave/cli"
 	"os"
 	"strconv"
 	"strings"
-
-	"Elastos.ELA/crypto"
-	"Elastos.ELA/account"
-	. "Elastos.ELA/common"
-	. "Elastos.ELA/cli/common"
-	"Elastos.ELA/common/password"
-
-	"github.com/urfave/cli"
 )
 
 const (
@@ -29,7 +28,54 @@ func showAccountsInfo(wallet account.Client) {
 		fmt.Printf("%4s  %s %s\n", strconv.Itoa(i), address, BytesToHexString(publicKey))
 	}
 }
+func showScriptInfo(wallet account.Client) {
+	contracts := wallet.GetContracts()
+	accounts := wallet.GetAccounts()
+	coins := wallet.GetCoins()
 
+	script := []Uint168{}
+	// find script address
+	for _, contract := range contracts {
+		if contract.GetType() == ct.CustomContract {
+			found := false
+			for _, account := range accounts {
+				if contract.ProgramHash == account.ProgramHash {
+					found = true
+					break
+				}
+			}
+			if !found {
+				script = append(script, contract.ProgramHash)
+			}
+		}
+	}
+
+	for _, programHash := range script {
+		assets := make(map[Uint256]Fixed64)
+		for _, out := range coins {
+			if out.Output.ProgramHash == programHash {
+				if _, ok := assets[out.Output.AssetID]; !ok {
+					assets[out.Output.AssetID] = out.Output.Value
+				} else {
+					assets[out.Output.AssetID] += out.Output.Value
+				}
+			}
+		}
+		address, _ := programHash.ToAddress()
+		fmt.Println("-----------------------------------------------------------------------------------")
+		fmt.Printf("Address: %s\n", address)
+		if len(assets) != 0 {
+			fmt.Println(" ID   Asset ID\t\t\t\t\t\t\t\tAmount")
+			fmt.Println("----  --------\t\t\t\t\t\t\t\t------")
+			i := 0
+			for id, value := range assets {
+				fmt.Printf("%4s  %s  %v\n", strconv.Itoa(i), BytesToHexString(id.ToArrayReverse()), value)
+				i++
+			}
+		}
+		fmt.Println("-----------------------------------------------------------------------------------\n")
+	}
+}
 func showMultisigInfo(wallet account.Client) {
 	contracts := wallet.GetContracts()
 	accounts := wallet.GetAccounts()
@@ -38,15 +84,17 @@ func showMultisigInfo(wallet account.Client) {
 	multisign := []Uint168{}
 	// find multisign address
 	for _, contract := range contracts {
-		found := false
-		for _, account := range accounts {
-			if contract.ProgramHash == account.ProgramHash {
-				found = true
-				break
+		if contract.GetType() == ct.MultiSigContract {
+			found := false
+			for _, account := range accounts {
+				if contract.ProgramHash == account.ProgramHash {
+					found = true
+					break
+				}
 			}
-		}
-		if !found {
-			multisign = append(multisign, contract.ProgramHash)
+			if !found {
+				multisign = append(multisign, contract.ProgramHash)
+			}
 		}
 	}
 
@@ -194,8 +242,8 @@ func walletAction(c *cli.Context) error {
 
 	// list wallet info
 	if item := c.String("list"); item != "" {
-		if item != "account" && item != "balance" && item != "verbose" && item != "multisig" {
-			fmt.Fprintln(os.Stderr, "--list [account | balance | verbose | multisig]")
+		if item != "account" && item != "balance" && item != "verbose" && item != "multisig" && item != "script" {
+			fmt.Fprintln(os.Stderr, "--list [account | balance | verbose | multisig | script]")
 			os.Exit(1)
 		} else {
 			wallet, err := account.Open(name, getPassword(passwd))
@@ -212,6 +260,8 @@ func walletAction(c *cli.Context) error {
 				showVerboseInfo(wallet)
 			case "multisig":
 				showMultisigInfo(wallet)
+			case "script":
+				showScriptInfo(wallet)
 			}
 		}
 		return nil
@@ -252,13 +302,91 @@ func walletAction(c *cli.Context) error {
 		// M = N/2+1
 		// M/N could be 2/3, 3/4, 3/5, 4/6, 4/7 ...
 		var M = len(keys)/2 + 1
-		ct, err := wallet.CreateMultiSignContract(mainAccount.ProgramHash, M, keys);
+		ct, err := wallet.CreateMultiSignContract(mainAccount.ProgramHash, M, keys)
 		if err != nil {
 			fmt.Print("error: create multi sign contract failed,", err)
 			return nil
 		}
 		address, err := ct.ProgramHash.ToAddress()
 		fmt.Print(address)
+		return nil
+	}
+
+	// add script account
+	if accountitem := c.String("addscriptaccount"); accountitem != "" {
+		if accountitem != "maindeposit" && accountitem != "sidedeposit" && accountitem != "mainwithdraw" && accountitem != "sidewithdraw" {
+			fmt.Fprintln(os.Stderr, "--addscriptaccount [maindeposit, sidedeposit, mainwithdraw, sidewithdraw]")
+			os.Exit(1)
+		} else {
+			wallet, err := account.Open(name, getPassword(passwd))
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			mainAccount, err := wallet.GetDefaultAccount()
+			if err != nil {
+				fmt.Print("error: wallet is broken, main account missing")
+				return nil
+			}
+			abkeys := c.String("accounts")
+			hash := c.String("hash")
+			if abkeys == "" || hash == "" {
+				fmt.Println("error: a:b keys and hash are needed")
+				return nil
+			}
+			if abkeys != "" && hash != "" {
+				publicKeys := strings.Split(abkeys, ":")
+				var keys []*crypto.PubKey
+				for _, v := range publicKeys {
+					byteKey, err := HexStringToBytes(v)
+					if err != nil {
+						fmt.Print("error: invalid public key")
+						return nil
+					}
+					rawKey, err := crypto.DecodePoint(byteKey)
+					if err != nil {
+						fmt.Print("error: invalid encoded public key")
+						return nil
+					}
+					keys = append(keys, rawKey)
+				}
+				hashbyte, _ := HexStringToBytes(hash)
+				switch accountitem {
+				case "maindeposit":
+					ct, err := wallet.Createmaindepositaccount(mainAccount.ProgramHash, keys, hashbyte)
+					if err != nil {
+						fmt.Print("error: create multi sign contract failed,", err)
+						return nil
+					}
+					address, err := ct.ProgramHash.ToAddress()
+					fmt.Println(address)
+				case "sidedeposit":
+					ct, err := wallet.Createsidedepositaccount(mainAccount.ProgramHash, keys, hashbyte)
+					if err != nil {
+						fmt.Print("error: create multi sign contract failed,", err)
+						return nil
+					}
+					address, err := ct.ProgramHash.ToAddress()
+					fmt.Println(address)
+				case "mainwithdraw":
+					ct, err := wallet.Createmainwithdrawaccount(mainAccount.ProgramHash, keys, hashbyte)
+					if err != nil {
+						fmt.Print("error: create multi sign contract failed,", err)
+						return nil
+					}
+					address, err := ct.ProgramHash.ToAddress()
+					fmt.Println(address)
+				case "sidewithdraw":
+					ct, err := wallet.Createsidewithdrawaccount(mainAccount.ProgramHash, keys, hashbyte)
+					if err != nil {
+						fmt.Print("error: create multi sign contract failed,", err)
+						return nil
+					}
+					address, err := ct.ProgramHash.ToAddress()
+					fmt.Println(address)
+				}
+			}
+		}
 		return nil
 	}
 
@@ -337,7 +465,7 @@ func NewCommand() *cli.Command {
 			},
 			cli.StringFlag{
 				Name:  "list, l",
-				Usage: "list wallet information [account, balance, verbose, multisig]",
+				Usage: "list wallet information [account, balance, verbose, multisig, script]",
 			},
 			cli.IntFlag{
 				Name:  "addaccount",
@@ -347,7 +475,18 @@ func NewCommand() *cli.Command {
 				Name:  "addmultisigaccount",
 				Usage: "add new multi-sign account address",
 			},
-
+			cli.StringFlag{
+				Name:  "addscriptaccount",
+				Usage: "add new script account[maindeposit, sidedeposit, mainwithdraw, sidewithdraw]",
+			},
+			cli.StringFlag{
+				Name:  "accounts",
+				Usage: "A : B pubkey of main chain or side chain",
+			},
+			cli.StringFlag{
+				Name:  "hash",
+				Usage: "customize secret hash",
+			},
 			cli.BoolFlag{
 				Name:  "changepassword",
 				Usage: "change wallet password",

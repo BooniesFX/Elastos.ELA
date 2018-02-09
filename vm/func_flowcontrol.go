@@ -17,13 +17,10 @@ func opJmp(e *ExecutionEngine) (VMState, error) {
 	fmt.Println("call jmp")
 	offset := int(e.context.OpReader.ReadInt16())
 	fmt.Printf("OpReader = %v\n", e.context.OpReader.BaseStream)
-	fmt.Printf("e.context.InstructionPointer %d\n", e.context.InstructionPointer)
 	offset = e.context.InstructionPointer + offset - 3
-	fmt.Printf("offet %d\n", offset)
 	if offset < 0 || offset > len(e.context.Script) {
 		return FAULT, errors.ErrFault
 	}
-	fmt.Printf("bool = %v\n", 1)
 	fValue := true
 	if e.opCode > JMP {
 		s := AssertStackItem(e.evaluationStack.Pop())
@@ -89,12 +86,14 @@ func opSysCall(e *ExecutionEngine) (VMState, error) {
 }
 
 func opVerify(e *ExecutionEngine) (VMState, error) {
+	fmt.Println("call opVerify")
 	if e.service == nil {
 		return FAULT, nil
 	}
 	fValue := false
 	s := AssertStackItem(e.evaluationStack.Pop())
 	fValue = s.GetBoolean()
+	fmt.Printf("fValue = %v\n", fValue)
 	if !fValue {
 		return FAULT, errors.ErrFault
 	}

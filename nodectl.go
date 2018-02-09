@@ -6,6 +6,7 @@ import (
 
 	_ "Elastos.ELA/cli"
 	"Elastos.ELA/cli/asset"
+	"Elastos.ELA/cli/crosschain"
 	"Elastos.ELA/cli/debug"
 	"Elastos.ELA/cli/elatst"
 	"Elastos.ELA/cli/info"
@@ -13,7 +14,6 @@ import (
 	"Elastos.ELA/cli/multisig"
 	"Elastos.ELA/cli/recover"
 	"Elastos.ELA/cli/wallet"
-
 	"github.com/urfave/cli"
 )
 
@@ -38,6 +38,7 @@ func main() {
 		*mining.NewCommand(),
 		*elatst.NewCommand(),
 		*multisig.NewCommand(),
+		*crosschain.NewCommand(),
 	}
 	sort.Sort(cli.CommandsByName(app.Commands))
 	sort.Sort(cli.FlagsByName(app.Flags))

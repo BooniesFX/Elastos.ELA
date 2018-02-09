@@ -3,20 +3,22 @@ package account
 import (
 	"io"
 
-	"Elastos.ELA/core/transaction"
 	"Elastos.ELA/common/serialization"
+	"Elastos.ELA/core/transaction"
 )
+
 type AddressType byte
 
 const (
 	SingleSign AddressType = 0
 	MultiSign  AddressType = 1
+	Script     AddressType = 2
 )
 
 type Coin struct {
 	Output      *transaction.TxOutput
 	AddressType AddressType
-	Height		uint32
+	Height      uint32
 }
 
 func (coin *Coin) Serialize(w io.Writer, version string) error {
@@ -36,7 +38,7 @@ func (coin *Coin) Deserialize(r io.Reader, version string) error {
 	}
 	coin.AddressType = AddressType(addrType)
 
-	height,err := serialization.ReadUint32(r)
+	height, err := serialization.ReadUint32(r)
 	if err != nil {
 		return err
 	}

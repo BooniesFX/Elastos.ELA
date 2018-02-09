@@ -43,7 +43,11 @@ func StartRPCServer() {
 	// wallet interfaces
 	HandleFunc("addaccount", addAccount)
 	HandleFunc("deleteaccount", deleteAccount)
-
+	//cross chain
+	HandleFunc("depositunlockTransaction", depositunlockTransaction)
+	HandleFunc("withdrawTransaction", withdrawTransaction)
+	HandleFunc("deposittosideTransaction", deposittosideTransaction)
+	HandleFunc("withdrawunlockTransaction", withdrawunlockTransaction)
 	// TODO: only listen to localhost
 	err := http.ListenAndServe(":"+strconv.Itoa(Parameters.HttpJsonPort), nil)
 	if err != nil {

@@ -170,11 +170,11 @@ func (e *ExecutionEngine) ExecuteOp(opCode OpCode, context *ExecutionContext) (V
 	}
 	fmt.Printf("before Exec stack = %v\n", e.evaluationStack.Peek(0))
 	state, err := opExec.Exec(e)
-	fmt.Printf("after Exec stack = %q\n", e.evaluationStack.Peek(0))
+	fmt.Printf("after Exec stack = %v\n", e.evaluationStack.Peek(0))
 	if err != nil {
 		return state, err
 	}
-	return NONE, nil
+	return state, nil
 }
 
 func (e *ExecutionEngine) StepOut() {

@@ -21,6 +21,8 @@ func ToCodeHash(code []byte, signType int) (Uint168, error) {
 		f = append([]byte{33}, f...)
 	} else if signType == 2 {
 		f = append([]byte{18}, f...)
+	} else if signType == 3 {
+		f = append([]byte{75}, f...)
 	}
 
 	hash, err := Uint168ParseFromBytes(f)
@@ -32,6 +34,13 @@ func ToCodeHash(code []byte, signType int) (Uint168, error) {
 
 func IntToBytes(n int) []byte {
 	tmp := int32(n)
+	bytesBuffer := bytes.NewBuffer([]byte{})
+	binary.Write(bytesBuffer, binary.LittleEndian, tmp)
+	return bytesBuffer.Bytes()
+}
+
+func Int16ToBytes(n int) []byte {
+	tmp := int16(n)
 	bytesBuffer := bytes.NewBuffer([]byte{})
 	binary.Write(bytesBuffer, binary.LittleEndian, tmp)
 	return bytesBuffer.Bytes()

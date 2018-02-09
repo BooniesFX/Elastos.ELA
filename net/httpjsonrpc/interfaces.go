@@ -1,27 +1,28 @@
 package httpjsonrpc
 
 import (
-	"bytes"
-	"fmt"
-	"time"
-
 	"Elastos.ELA/account"
 	. "Elastos.ELA/common"
 	"Elastos.ELA/common/config"
 	"Elastos.ELA/common/log"
+	"Elastos.ELA/core/contract"
+	"Elastos.ELA/core/contract/program"
 	"Elastos.ELA/core/ledger"
 	"Elastos.ELA/core/signature"
+	"Elastos.ELA/core/transaction"
 	tx "Elastos.ELA/core/transaction"
 	"Elastos.ELA/core/transaction/payload"
+	"Elastos.ELA/crypto"
 	. "Elastos.ELA/errors"
+	"bytes"
 	"encoding/json"
-	"Elastos.ELA/core/transaction"
-	"math"
-	"Elastos.ELA/core/contract"
-	"sort"
 	"errors"
+	"fmt"
+	"math"
 	"math/rand"
+	"sort"
 	"strconv"
+	"time"
 )
 
 const (
@@ -465,11 +466,11 @@ func createAuxBlock(params []interface{}) map[string]interface{} {
 
 func getInfo(params []interface{}) map[string]interface{} {
 	RetVal := struct {
-		Version         int    `json:"version"`
-		Balance         int    `json:"balance"`
-		Blocks          uint64 `json:"blocks"`
-		Timeoffset      int    `json:"timeoffset"`
-		Connections     uint   `json:"connections"`
+		Version     int    `json:"version"`
+		Balance     int    `json:"balance"`
+		Blocks      uint64 `json:"blocks"`
+		Timeoffset  int    `json:"timeoffset"`
+		Connections uint   `json:"connections"`
 		//Difficulty      int    `json:"difficulty"`
 		Testnet        bool   `json:"testnet"`
 		Keypoololdest  int    `json:"keypoololdest"`
@@ -479,11 +480,11 @@ func getInfo(params []interface{}) map[string]interface{} {
 		Relayfee       int    `json:"relayfee"`
 		Errors         string `json:"errors"`
 	}{
-		Version:         config.Parameters.Version,
-		Balance:         0,
-		Blocks:          node.GetHeight(),
-		Timeoffset:      0,
-		Connections:     node.GetConnectionCnt(),
+		Version:     config.Parameters.Version,
+		Balance:     0,
+		Blocks:      node.GetHeight(),
+		Timeoffset:  0,
+		Connections: node.GetConnectionCnt(),
 		//Difficulty:      ledger.PowLimitBits,
 		Testnet:        config.Parameters.PowConfiguration.TestNet,
 		Keypoololdest:  0,
@@ -896,6 +897,530 @@ func createMultiSignTransaction(params []interface{}) map[string]interface{} {
 	txn.Serialize(&buffer)
 	return ElaRpc(BytesToHexString(buffer.Bytes()))
 }
+func depositunlockTransaction(params []interface{}) map[string]interface{} {
+	if len(params) < 7 {
+		return ElaRpcNil
+	}
+	var asset, from, address, key, value, fee, s string
+	switch params[0].(type) {
+	case string:
+		asset = params[0].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+	switch params[1].(type) {
+	case string:
+		from = params[1].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+	switch params[2].(type) {
+	case string:
+		address = params[2].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+	switch params[3].(type) {
+	case string:
+		key = params[3].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+	switch params[4].(type) {
+	case string:
+		value = params[4].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+	switch params[5].(type) {
+	case string:
+		fee = params[5].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+	switch params[6].(type) {
+	case string:
+		s = params[6].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+
+	if Wallet == nil {
+		return ElaRpc("error : wallet is not opened")
+	}
+
+	batchOut := BatchOut{
+		Address: address,
+		Value:   value,
+	}
+	tmp, err := HexStringToBytesReverse(asset)
+	if err != nil {
+		return ElaRpc("error: invalid asset ID")
+	}
+	var assetID Uint256
+	if err := assetID.Deserialize(bytes.NewReader(tmp)); err != nil {
+		return ElaRpc("error: invalid asset hash")
+	}
+	txn, err := MakeScriptTransferTransaction(Wallet, assetID, from, fee, batchOut)
+	if err != nil {
+		return ElaRpc("error:" + err.Error())
+	}
+	//append code and parameter
+	byteKey, err := HexStringToBytes(key)
+	if err != nil {
+		fmt.Print("error: invalid public key")
+		return nil
+	}
+	rawKey, err := crypto.DecodePoint(byteKey)
+	if err != nil {
+		fmt.Print("error: invalid encoded public key")
+		return nil
+	}
+	programs := make([]*program.Program, 1)
+	hash, _ := HexStringToBytes(s)
+	code, err := contract.CreateUnlockScriptRedeemScript(hash, rawKey, 100)
+	if err != nil {
+		fmt.Printf("error: %s\n", err.Error())
+		return nil
+	}
+	fmt.Printf("Code: %s\n", BytesToHexString(code))
+	programs[0] = &program.Program{
+		Code:      code,
+		Parameter: []byte{0},
+	}
+	txn.SetPrograms(programs)
+
+	var buffer bytes.Buffer
+	txn.Serialize(&buffer)
+	return ElaRpc(BytesToHexString(buffer.Bytes()))
+}
+
+func withdrawTransaction(params []interface{}) map[string]interface{} {
+	if len(params) < 8 {
+		return ElaRpcNil
+	}
+	var asset, from, address, keyA, keyS, value, fee, s string
+	switch params[0].(type) {
+	case string:
+		asset = params[0].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+	switch params[1].(type) {
+	case string:
+		from = params[1].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+	switch params[2].(type) {
+	case string:
+		address = params[2].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+	switch params[3].(type) {
+	case string:
+		keyA = params[3].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+	switch params[4].(type) {
+	case string:
+		keyS = params[4].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+	switch params[5].(type) {
+	case string:
+		value = params[5].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+	switch params[6].(type) {
+	case string:
+		fee = params[6].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+	switch params[7].(type) {
+	case string:
+		s = params[7].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+
+	if Wallet == nil {
+		return ElaRpc("error : wallet is not opened")
+	}
+
+	batchOut := BatchOut{
+		Address: address,
+		Value:   value,
+	}
+	tmp, err := HexStringToBytesReverse(asset)
+	if err != nil {
+		return ElaRpc("error: invalid asset ID")
+	}
+	var assetID Uint256
+	if err := assetID.Deserialize(bytes.NewReader(tmp)); err != nil {
+		return ElaRpc("error: invalid asset hash")
+	}
+	txn, err := MakeScriptTransferTransaction(Wallet, assetID, from, fee, batchOut)
+	if err != nil {
+		return ElaRpc("error:" + err.Error())
+	}
+	//append code and parameter
+	byteKeyA, err := HexStringToBytes(keyA)
+	if err != nil {
+		fmt.Print("error: invalid public key")
+		return nil
+	}
+	rawKeyA, err := crypto.DecodePoint(byteKeyA)
+	if err != nil {
+		fmt.Print("error: invalid encoded public key")
+		return nil
+	}
+	byteKeyS, err := HexStringToBytes(keyS)
+	if err != nil {
+		fmt.Print("error: invalid public key")
+		return nil
+	}
+	rawKeyS, err := crypto.DecodePoint(byteKeyS)
+	if err != nil {
+		fmt.Print("error: invalid encoded public key")
+		return nil
+	}
+	programs := make([]*program.Program, 1)
+	hash, _ := HexStringToBytes(s)
+	code, err := contract.CreateWithdrawScriptRedeemScript(hash, rawKeyA, rawKeyS, 100)
+	if err != nil {
+		fmt.Printf("error: %s\n", err.Error())
+		return nil
+	}
+	fmt.Printf("Code: %s\n", BytesToHexString(code))
+	programs[0] = &program.Program{
+		Code:      code,
+		Parameter: []byte{0},
+	}
+	txn.SetPrograms(programs)
+
+	var buffer bytes.Buffer
+	txn.Serialize(&buffer)
+	return ElaRpc(BytesToHexString(buffer.Bytes()))
+}
+
+//destroy token or refund token
+func withdrawunlockTransaction(params []interface{}) map[string]interface{} {
+	if len(params) < 8 {
+		return ElaRpcInvalidParameter
+	}
+	var asset, from, address, keyA, keyS, value, fee, s string
+	switch params[0].(type) {
+	case string:
+		asset = params[0].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+	switch params[1].(type) {
+	case string:
+		from = params[1].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+	switch params[2].(type) {
+	case string:
+		address = params[2].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+	switch params[3].(type) {
+	case string:
+		keyA = params[3].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+	switch params[4].(type) {
+	case string:
+		keyS = params[4].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+	switch params[5].(type) {
+	case string:
+		value = params[5].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+	switch params[6].(type) {
+	case string:
+		fee = params[6].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+	switch params[7].(type) {
+	case string:
+		s = params[7].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+
+	if Wallet == nil {
+		return ElaRpc("error : wallet is not opened")
+	}
+
+	batchOut := BatchOut{
+		Address: address,
+		Value:   value,
+	}
+	tmp, err := HexStringToBytesReverse(asset)
+	if err != nil {
+		return ElaRpc("error: invalid asset ID")
+	}
+	var assetID Uint256
+	if err := assetID.Deserialize(bytes.NewReader(tmp)); err != nil {
+		return ElaRpc("error: invalid asset hash")
+	}
+	txn, err := MakeScriptTransferTransaction(Wallet, assetID, from, fee, batchOut)
+	if err != nil {
+		return ElaRpc("error:" + err.Error())
+	}
+	//append code and parameter
+	byteKeyA, err := HexStringToBytes(keyA)
+	if err != nil {
+		fmt.Print("error: invalid public key")
+		return nil
+	}
+	rawKeyA, err := crypto.DecodePoint(byteKeyA)
+	if err != nil {
+		fmt.Print("error: invalid encoded public key")
+		return nil
+	}
+	byteKeyS, err := HexStringToBytes(keyS)
+	if err != nil {
+		fmt.Print("error: invalid public key")
+		return nil
+	}
+	rawKeyS, err := crypto.DecodePoint(byteKeyS)
+	if err != nil {
+		fmt.Print("error: invalid encoded public key")
+		return nil
+	}
+	programs := make([]*program.Program, 1)
+	hash, _ := HexStringToBytes(s)
+	code, err := contract.CreateWithdrawUnlockScriptRedeemScript(hash, rawKeyS, rawKeyA, 1000)
+	if err != nil {
+		fmt.Printf("error: %s\n", err.Error())
+		return nil
+	}
+
+	fmt.Printf("Code: %s\n", BytesToHexString(code))
+	programs[0] = &program.Program{
+		Code:      code,
+		Parameter: []byte{0},
+	}
+	txn.SetPrograms(programs)
+
+	var buffer bytes.Buffer
+	txn.Serialize(&buffer)
+	return ElaRpc(BytesToHexString(buffer.Bytes()))
+}
+
+func deposittosideTransaction(params []interface{}) map[string]interface{} {
+	if len(params) < 8 {
+		return ElaRpcInvalidParameter
+	}
+	var asset, from, address, keyA, keyS, value, fee, s string
+	switch params[0].(type) {
+	case string:
+		asset = params[0].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+	switch params[1].(type) {
+	case string:
+		from = params[1].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+	switch params[2].(type) {
+	case string:
+		address = params[2].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+	switch params[3].(type) {
+	case string:
+		keyA = params[3].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+	switch params[4].(type) {
+	case string:
+		keyS = params[4].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+	switch params[5].(type) {
+	case string:
+		value = params[5].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+	switch params[6].(type) {
+	case string:
+		fee = params[6].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+	switch params[7].(type) {
+	case string:
+		s = params[7].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+
+	if Wallet == nil {
+		return ElaRpc("error : wallet is not opened")
+	}
+
+	batchOut := BatchOut{
+		Address: address,
+		Value:   value,
+	}
+	tmp, err := HexStringToBytesReverse(asset)
+	if err != nil {
+		return ElaRpc("error: invalid asset ID")
+	}
+	var assetID Uint256
+	if err := assetID.Deserialize(bytes.NewReader(tmp)); err != nil {
+		return ElaRpc("error: invalid asset hash")
+	}
+	txn, err := MakeScriptTransferTransaction(Wallet, assetID, from, fee, batchOut)
+	if err != nil {
+		return ElaRpc("error:" + err.Error())
+	}
+	//append code and parameter
+	byteKeyA, err := HexStringToBytes(keyA)
+	if err != nil {
+		fmt.Print("error: invalid public key")
+		return nil
+	}
+	rawKeyA, err := crypto.DecodePoint(byteKeyA)
+	if err != nil {
+		fmt.Print("error: invalid encoded public key")
+		return nil
+	}
+	byteKeyS, err := HexStringToBytes(keyS)
+	if err != nil {
+		fmt.Print("error: invalid public key")
+		return nil
+	}
+	rawKeyS, err := crypto.DecodePoint(byteKeyS)
+	if err != nil {
+		fmt.Print("error: invalid encoded public key")
+		return nil
+	}
+
+	programs := make([]*program.Program, 1)
+	hash, _ := HexStringToBytes(s)
+	code, err := contract.CreateDepositScriptRedeemScript(hash, rawKeyS, rawKeyA, 1000)
+	if err != nil {
+		fmt.Printf("error: %s\n", err.Error())
+		return nil
+	}
+
+	fmt.Printf("Code: %s\n", BytesToHexString(code))
+	programs[0] = &program.Program{
+		Code:      code,
+		Parameter: []byte{0},
+	}
+	txn.SetPrograms(programs)
+
+	var buffer bytes.Buffer
+	txn.Serialize(&buffer)
+	return ElaRpc(BytesToHexString(buffer.Bytes()))
+}
+
+func MakeScriptTransferTransaction(wallet account.Client, assetID Uint256, from string, fee string, batchOut ...BatchOut) (*transaction.Transaction, error) {
+	outputNum := len(batchOut)
+	if outputNum == 0 {
+		return nil, errors.New("nil outputs")
+	}
+
+	spendAddress, err := ToScriptHash(from)
+	if err != nil {
+		return nil, errors.New("invalid sender address")
+	}
+
+	var expected Fixed64
+	input := []*transaction.UTXOTxInput{}
+	output := []*transaction.TxOutput{}
+	txnfee, err := StringToFixed64(fee)
+	if err != nil || txnfee <= 0 {
+		return nil, errors.New("invalid transation fee")
+	}
+	expected += txnfee
+	// construct transaction outputs
+	for _, o := range batchOut {
+		outputValue, err := StringToFixed64(o.Value)
+		if err != nil {
+			return nil, err
+		}
+
+		expected += outputValue
+		address, err := ToScriptHash(o.Address)
+		if err != nil {
+			return nil, errors.New("invalid receiver address")
+		}
+		tmp := &transaction.TxOutput{
+			AssetID:     assetID,
+			Value:       outputValue,
+			ProgramHash: address,
+		}
+		output = append(output, tmp)
+	}
+	log.Debug("expected = %v\n", expected)
+	// construct transaction inputs and changes
+	coins := wallet.GetCoins()
+	sorted := sortAvailableCoinsByValue(coins, account.Script)
+	for _, coinItem := range sorted {
+		if coinItem.coin.Output.AssetID == assetID && coinItem.coin.Output.ProgramHash == spendAddress {
+			input = append(input, coinItem.input)
+			log.Debug("coinItem.coin.Output.Value = %v ProgramHash = %x\n", coinItem.coin.Output.Value, spendAddress.ToArrayReverse())
+			if coinItem.coin.Output.Value > expected {
+				changes := &transaction.TxOutput{
+					AssetID:     assetID,
+					Value:       coinItem.coin.Output.Value - expected,
+					ProgramHash: spendAddress,
+				}
+				// if any, the changes output of transaction will be the last one
+				output = append(output, changes)
+				expected = 0
+				break
+			} else if coinItem.coin.Output.Value == expected {
+				expected = 0
+				break
+			} else if coinItem.coin.Output.Value < expected {
+				expected = expected - coinItem.coin.Output.Value
+				fmt.Printf("expected - coinItem.coin.Output.Value = %v\n", expected)
+			}
+		}
+	}
+	if expected > 0 {
+		return nil, errors.New("available token is not enough")
+	}
+
+	// construct transaction
+	txn, err := transaction.NewTransferAssetTransaction(input, output)
+	if err != nil {
+		return nil, err
+	}
+	txAttr := transaction.NewTxAttribute(transaction.Nonce, []byte(strconv.FormatInt(rand.Int63(), 10)))
+	txn.Attributes = make([]*transaction.TxAttribute, 0)
+	txn.Attributes = append(txn.Attributes, &txAttr)
+
+	return txn, nil
+}
 
 func createBatchOutMultiSignTransaction(params []interface{}) map[string]interface{} {
 	if len(params) < 4 {
@@ -1165,3 +1690,162 @@ func sortAvailableCoinsByValue(coins map[*transaction.UTXOTxInput]*account.Coin,
 	return coinList
 }
 
+func deposittransaction(params []interface{}) map[string]interface{} {
+	if len(params) < 5 {
+		return ElaRpcNil
+	}
+	var asset, from, address, value, fee, s string
+	switch params[0].(type) {
+	case string:
+		asset = params[0].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+	switch params[1].(type) {
+	case string:
+		from = params[1].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+	switch params[2].(type) {
+	case string:
+		address = params[2].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+	switch params[3].(type) {
+	case string:
+		value = params[3].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+	switch params[4].(type) {
+	case string:
+		fee = params[4].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+	switch params[5].(type) {
+	case string:
+		s = params[5].(string)
+	default:
+		return ElaRpcInvalidParameter
+	}
+
+	if Wallet == nil {
+		return ElaRpc("error : wallet is not opened")
+	}
+
+	batchOut := BatchOut{
+		Address: address,
+		Value:   value,
+	}
+
+	tmp, err := HexStringToBytesReverse(asset)
+	if err != nil {
+		return ElaRpc("error: invalid asset ID")
+	}
+	var assetID Uint256
+	if err := assetID.Deserialize(bytes.NewReader(tmp)); err != nil {
+		return ElaRpc("error: invalid asset hash")
+	}
+	txn, err := MakedepositTransaction(Wallet, assetID, from, fee, s, batchOut)
+	if err != nil {
+		return ElaRpc("error:" + err.Error())
+	}
+
+	var buffer bytes.Buffer
+	txn.Serialize(&buffer)
+	return ElaRpc(BytesToHexString(buffer.Bytes()))
+}
+
+func MakedepositTransaction(wallet account.Client, assetID Uint256, from string, fee string, secret string, batchOut ...BatchOut) (*transaction.Transaction, error) {
+	outputNum := len(batchOut)
+	if outputNum == 0 {
+		return nil, errors.New("nil outputs")
+	}
+
+	spendAddress, err := ToScriptHash(from)
+	if err != nil {
+		return nil, errors.New("invalid sender address")
+	}
+	var expected Fixed64
+	input := []*transaction.UTXOTxInput{}
+	output := []*transaction.TxOutput{}
+	txnfee, err := StringToFixed64(fee)
+	if err != nil || txnfee <= 0 {
+		return nil, errors.New("invalid transation fee")
+	}
+	expected += txnfee
+	// construct transaction outputs
+	for _, o := range batchOut {
+		outputValue, err := StringToFixed64(o.Value)
+		if err != nil {
+			return nil, err
+		}
+
+		expected += outputValue
+		address, err := ToScriptHash(o.Address)
+		if err != nil {
+			return nil, errors.New("invalid receiver address")
+		}
+		tmp := &transaction.TxOutput{
+			AssetID:     assetID,
+			Value:       outputValue,
+			ProgramHash: address,
+		}
+		output = append(output, tmp)
+	}
+	log.Debug("expected = %v\n", expected)
+	// construct transaction inputs and changes
+	coins := wallet.GetCoins()
+	sorted := sortAvailableCoinsByValue(coins, account.MultiSign)
+	for _, coinItem := range sorted {
+		if coinItem.coin.Output.AssetID == assetID && coinItem.coin.Output.ProgramHash == spendAddress {
+			input = append(input, coinItem.input)
+			log.Debug("coinItem.coin.Output.Value = %v ProgramHash = %x\n", coinItem.coin.Output.Value, spendAddress.ToArrayReverse())
+			if coinItem.coin.Output.Value > expected {
+				changes := &transaction.TxOutput{
+					AssetID:     assetID,
+					Value:       coinItem.coin.Output.Value - expected,
+					ProgramHash: spendAddress,
+				}
+				// if any, the changes output of transaction will be the last one
+				output = append(output, changes)
+				expected = 0
+				break
+			} else if coinItem.coin.Output.Value == expected {
+				expected = 0
+				break
+			} else if coinItem.coin.Output.Value < expected {
+				expected = expected - coinItem.coin.Output.Value
+			}
+		}
+	}
+	if expected > 0 {
+		return nil, errors.New("available token is not enough")
+	}
+
+	// construct transaction
+	txn, err := transaction.NewTransferAssetTransaction(input, output)
+	if err != nil {
+		return nil, err
+	}
+	txAttr := transaction.NewTxAttribute(transaction.Nonce, []byte(strconv.FormatInt(rand.Int63(), 10)))
+	txn.Attributes = make([]*transaction.TxAttribute, 0)
+	txn.Attributes = append(txn.Attributes, &txAttr)
+
+	ctx := contract.NewContractContext(txn)
+	err = wallet.Sign(ctx)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	if ctx.IsCompleted() {
+		txn.SetPrograms(ctx.GetPrograms())
+	} else {
+		txn.SetPrograms(ctx.GetUncompletedPrograms())
+	}
+
+	return txn, nil
+}

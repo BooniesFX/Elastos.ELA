@@ -121,4 +121,6 @@ const (
 	CHECKAFTER  = 0xD0
 	CHECKBEFORE = 0xD1
 	VERIFY      = 0xD9
+	//customize
+	INVALIDVOUTVERIFY = 0xE0
 )
